@@ -9,7 +9,7 @@ import os
 
 # LangChain and RAG tools
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceInferenceAPIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
@@ -24,7 +24,10 @@ load_dotenv()
 # Models
 google_api_key = os.getenv("GOOGLE_API_KEY")
 model = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embedding_model = HuggingFaceInferenceAPIEmbeddings(
+    api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+    model_name="sentence-transformers/all-MiniLM-L2-v2"
+)
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 parser = StrOutputParser()
 
