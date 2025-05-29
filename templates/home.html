@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Video QA with Dark Mode Toggle</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Tailwind config to enable dark mode class strategy & extend theme
+    tailwind.config = {
+      darkMode: 'class',  // <-- important for manual toggle via 'dark' class on <html>
+      theme: {
+        extend: {
+          fontFamily: {
+            youtube: ["Roboto", "sans-serif"],
+          },
+          colors: {
+            ytRed: "#FF0000",
+            darkBg: "#0f0f0f",
+            lightBg: "#f9f9f9",
+            cardBg: "#1f1f1f",
+          },
+        },
+      },
+    };
+  </script>
+</head>
+<body
+  class="bg-gradient-to-br from-red-50 to-gray-100 dark:from-darkBg dark:to-black min-h-screen flex items-center justify-center font-youtube text-gray-900 dark:text-white transition-colors duration-500 px-4"
+>
+  <form
+    action="/home/rag"
+    method="POST"
+    class="bg-white dark:bg-cardBg shadow-2xl rounded-2xl p-8 max-w-xl w-full transition-colors duration-500 text-lg"
+    novalidate
+  >
+    <h1 class="text-5xl font-bold text-center text-ytRed mb-4">
+     YouTube QA Chatbot
+    </h1>
+    <p class="text-center text-lg text-gray-500 dark:text-gray-300 mb-6">
+      Preview video, choose transcript language, and continue
+    </p>
+
+    <!-- Video URL Input -->
+    <div class="mb-6 relative">
+      <label for="videoUrl" class="block text-lg font-medium mb-2">Video URL</label>
+      <input
+        id="videoUrl"
+        name="video_url"
+        type="text"
+        placeholder="Paste YouTube or Vimeo URL"
+        class="w-full px-4 py-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ytRed focus:border-ytRed bg-gray-50 dark:bg-gray-800 transition text-lg"
+        oninput="debouncedPreview()"
+        autocomplete="off"
+        aria-describedby="urlError"
+        aria-invalid="false"
+        required
+      />
+      <p
+        id="urlError"
+        class="text-red-500 text-base mt-2 hidden"
+        role="alert"
+      >
+        Please enter a valid YouTube or Vimeo URL.
+      </p>
+    </div>
+
+    <!-- Hidden Language Input -->
+    <input type="hidden" name="language_code" id="languageCodeInput" />
+
+    <!-- Video Thumbnail -->
+    <div id="thumbnail" class="mt-6 hidden">
+      <img
+        id="thumbImg"
+        class="rounded-lg mx-auto w-full max-w-xs shadow-md"
+        alt="Video Thumbnail"
+        loading="lazy"
+      />
+    </div>
+
+    <!-- Transcript Languages Info -->
+    <div
+      id="transcriptLanguages"
+      class="mt-6 text-center text-gray-700 dark:text-gray-300 text-lg"
+    ></div>
+
+    <!-- Transcript Language Selector -->
+    <div id="transcriptSelector" class="mt-4 text-center"></div>
+
+    <!-- Continue Button -->
+    <div class="mt-6 text-center">
+      <button
+        type="submit"
+        id="continueBtn"
+        class="bg-ytRed text-white px-8 py-3 rounded-full hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-lg font-semibold"
+        disabled
+      >
+        Continue
+      </button>
+    </div>
+  </form>
+
+  <!-- Theme Toggle -->
+  <button
+    onclick="toggleTheme()"
+    class="absolute top-4 right-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white px-4 py-2 rounded-full text-base hover:shadow-md transition"
+    title="Toggle Dark Mode"
+    aria-label="Toggle dark mode"
+    id="themeToggleBtn"
+  >
+    🌓 Toggle Theme
+  </button>
+
+  <script>
+    let debounceTimer;
+    let selectedVideoId = null;
+    let availableLanguages = [];
+
+    function debouncedPreview() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(previewThumbnail, 700);
+    }
+
+    function previewThumbnail() {
+      const urlInput = document.getElementById("videoUrl");
+      const url = urlInput.value.trim();
+      const thumbnailEl = document.getElementById("thumbImg");
+      const container = document.getElementById("thumbnail");
+      const transcriptContainer = document.getElementById("transcriptLanguages");
+      const selectorContainer = document.getElementById("transcriptSelector");
+      const langInput = document.getElementById("languageCodeInput");
+      const continueBtn = document.getElementById("continueBtn");
+      const urlError = document.getElementById("urlError");
+
+      // Reset UI elements
+      selectorContainer.innerHTML = "";
+      transcriptContainer.innerHTML = "";
+      langInput.value = "";
+      continueBtn.disabled = true;
+      urlError.classList.add("hidden");
+      urlInput.setAttribute("aria-invalid", "false");
+
+      if (!url) {
+        container.classList.add("hidden");
+        return;
+      }
+
+      // Simple regex matching for YouTube and Vimeo URLs
+      const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([0-9A-Za-z_-]{11})/);
+      const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+
+      if (ytMatch) {
+        const videoId = ytMatch[1];
+        selectedVideoId = videoId;
+        thumbnailEl.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        container.classList.remove("hidden");
+        continueBtn.disabled = true; // Disabled until language selected
+
+        // Fetch available transcripts
+        fetch(`/transcripts?video=${videoId}`)
+          .then((res) => res.json())
+          .then((data) => {
+            availableLanguages = data.languages || [];
+            if (availableLanguages.length > 0) {
+              // Show available languages
+              let listHtml =
+                '<h3 class="font-semibold mb-1 text-lg">Available Transcript Languages:</h3><ul class="list-inside list-disc text-left max-w-xs mx-auto text-lg">';
+              availableLanguages.forEach((lang) => {
+                listHtml += `<li>${lang.language} (${lang.code})</li>`;
+              });
+              listHtml += "</ul>";
+              transcriptContainer.innerHTML = listHtml;
+
+              // Language selector dropdown
+              let selectHtml = `
+                <label for="langSelect" class="block font-medium mb-2 text-lg">Select Language:</label>
+                <select
+                  id="langSelect"
+                  class="px-4 py-3 border rounded-lg w-2/3 max-w-xs bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-ytRed focus:border-ytRed transition text-lg"
+                  aria-label="Select transcript language"
+                >
+                  <option value="">-- Choose --</option>`;
+              availableLanguages.forEach((lang) => {
+                selectHtml += `<option value="${lang.code}">${lang.language} (${lang.code})</option>`;
+              });
+              selectHtml += "</select>";
+
+              selectorContainer.innerHTML = selectHtml;
+
+              document
+                .getElementById("langSelect")
+                .addEventListener("change", function () {
+                  langInput.value = this.value;
+                  continueBtn.disabled = !this.value;
+                });
+            } else {
+              transcriptContainer.innerHTML =
+                '<p class="text-lg text-red-500">No transcripts available.</p>';
+              continueBtn.disabled = false; // Allow continue if transcripts not mandatory
+            }
+          })
+          .catch(() => {
+            transcriptContainer.innerHTML =
+              '<p class="text-lg text-red-500">Error fetching transcripts.</p>';
+            continueBtn.disabled = false;
+          });
+      } else if (vimeoMatch) {
+        const videoId = vimeoMatch[1];
+        selectedVideoId = videoId;
+        fetch(`https://vimeo.com/api/v2/video/${videoId}.json`)
+          .then((res) => res.json())
+          .then((data) => {
+            thumbnailEl.src = data[0].thumbnail_large;
+            container.classList.remove("hidden");
+            transcriptContainer.innerHTML = "";
+            selectorContainer.innerHTML = "";
+            langInput.value = "";
+            continueBtn.disabled = false; // Enable continue for Vimeo
+          })
+          .catch(() => {
+            container.classList.add("hidden");
+            urlError.textContent = "Could not fetch Vimeo video info.";
+            urlError.classList.remove("hidden");
+            urlInput.setAttribute("aria-invalid", "true");
+          });
+      } else {
+        container.classList.add("hidden");
+        urlError.textContent = "Please enter a valid YouTube or Vimeo URL.";
+        urlError.classList.remove("hidden");
+        urlInput.setAttribute("aria-invalid", "true");
+      }
+    }
+
+    // Dark mode toggle function
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      htmlEl.classList.toggle("dark");
+      // Save preference to localStorage
+      if (htmlEl.classList.contains("dark")) {
+        localStorage.setItem("theme", "dark");
+      } else {
+        localStorage.setItem("theme", "light");
+      }
+    }
+
+    // On page load, apply saved theme preference (if any)
+    (function () {
+      const savedTheme = localStorage.getItem("theme");
+      if (
+        savedTheme === "dark" ||
+        (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    })();
+  </script>
+</body>
+</html>
