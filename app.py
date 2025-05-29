@@ -1,22 +1,23 @@
 # Required Importing Libraries
 import requests
 from uuid import uuid4
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session as flask_session, redirect, url_for
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
 import os
 
-# === Add proxy patching here ===
-PROXY = "http://51.79.144.93:8080"  
+# === Proxy Configuration ===
+PROXY = "http://51.79.144.93:8080"
 proxies = {
     "http": PROXY,
     "https": PROXY,
 }
+# Create a requests session with proxies configured
 session = requests.Session()
 session.proxies.update(proxies)
-requests.Session = lambda: session
+# Do NOT overwrite requests.Session
 
 # LangChain and RAG tools
 from langchain_google_genai import ChatGoogleGenerativeAI
