@@ -6,9 +6,8 @@
   <title>YouTube Video QA with Dark Mode Toggle</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Tailwind config to enable dark mode class strategy & extend theme
     tailwind.config = {
-      darkMode: 'class',  // <-- important for manual toggle via 'dark' class on <html>
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -56,11 +55,7 @@
         aria-invalid="false"
         required
       />
-      <p
-        id="urlError"
-        class="text-red-500 text-base mt-2 hidden"
-        role="alert"
-      >
+      <p id="urlError" class="text-red-500 text-base mt-2 hidden" role="alert">
         Please enter a valid YouTube or Vimeo URL.
       </p>
     </div>
@@ -79,10 +74,7 @@
     </div>
 
     <!-- Transcript Languages Info -->
-    <div
-      id="transcriptLanguages"
-      class="mt-6 text-center text-gray-700 dark:text-gray-300 text-lg"
-    ></div>
+    <div id="transcriptLanguages" class="mt-6 text-center text-gray-700 dark:text-gray-300 text-lg"></div>
 
     <!-- Transcript Language Selector -->
     <div id="transcriptSelector" class="mt-4 text-center"></div>
@@ -145,7 +137,6 @@
         return;
       }
 
-      // Simple regex matching for YouTube and Vimeo URLs
       const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([0-9A-Za-z_-]{11})/);
       const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
 
@@ -154,15 +145,13 @@
         selectedVideoId = videoId;
         thumbnailEl.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         container.classList.remove("hidden");
-        continueBtn.disabled = true; // Disabled until language selected
+        continueBtn.disabled = true;
 
-        // Fetch available transcripts
         fetch(`/transcripts?video=${videoId}`)
           .then((res) => res.json())
           .then((data) => {
             availableLanguages = data.languages || [];
             if (availableLanguages.length > 0) {
-              // Show available languages
               let listHtml =
                 '<h3 class="font-semibold mb-1 text-lg">Available Transcript Languages:</h3><ul class="list-inside list-disc text-left max-w-xs mx-auto text-lg">';
               availableLanguages.forEach((lang) => {
@@ -171,7 +160,6 @@
               listHtml += "</ul>";
               transcriptContainer.innerHTML = listHtml;
 
-              // Language selector dropdown
               let selectHtml = `
                 <label for="langSelect" class="block font-medium mb-2 text-lg">Select Language:</label>
                 <select
@@ -184,7 +172,6 @@
                 selectHtml += `<option value="${lang.code}">${lang.language} (${lang.code})</option>`;
               });
               selectHtml += "</select>";
-
               selectorContainer.innerHTML = selectHtml;
 
               document
@@ -194,15 +181,31 @@
                   continueBtn.disabled = !this.value;
                 });
             } else {
-              transcriptContainer.innerHTML =
-                '<p class="text-lg text-red-500">No transcripts available.</p>';
-              continueBtn.disabled = false; // Allow continue if transcripts not mandatory
+              transcriptContainer.innerHTML = `
+                <div class="text-red-500 text-lg leading-relaxed">
+                  ❌ No transcripts were found for this video.
+                  <br/>This may happen due to:
+                  <ul class="list-disc list-inside mt-2 text-base">
+                    <li>Video is blocked or private</li>
+                    <li>Transcript is disabled by uploader</li>
+                    <li>Server could not access video content</li>
+                  </ul>
+                  <p class="mt-2">Please try a different video URL or ensure it has captions enabled.</p>
+                  <div class="mt-4">
+                    <button onclick="previewThumbnail()" type="button"
+                      class="text-white bg-ytRed px-4 py-2 rounded hover:bg-red-700 transition">
+                      🔄 Retry
+                    </button>
+                  </div>
+                </div>
+              `;
+              continueBtn.disabled = true;
             }
           })
           .catch(() => {
-            transcriptContainer.innerHTML =
-              '<p class="text-lg text-red-500">Error fetching transcripts.</p>';
-            continueBtn.disabled = false;
+            transcriptContainer.innerHTML = `
+              <p class="text-lg text-red-500">❗ Error fetching transcripts. Please check your internet or try again.</p>`;
+            continueBtn.disabled = true;
           });
       } else if (vimeoMatch) {
         const videoId = vimeoMatch[1];
@@ -215,7 +218,7 @@
             transcriptContainer.innerHTML = "";
             selectorContainer.innerHTML = "";
             langInput.value = "";
-            continueBtn.disabled = false; // Enable continue for Vimeo
+            continueBtn.disabled = false;
           })
           .catch(() => {
             container.classList.add("hidden");
@@ -231,28 +234,16 @@
       }
     }
 
-    // Dark mode toggle function
     function toggleTheme() {
       const htmlEl = document.documentElement;
       htmlEl.classList.toggle("dark");
-      // Save preference to localStorage
-      if (htmlEl.classList.contains("dark")) {
-        localStorage.setItem("theme", "dark");
-      } else {
-        localStorage.setItem("theme", "light");
-      }
+      localStorage.setItem("theme", htmlEl.classList.contains("dark") ? "dark" : "light");
     }
 
-    // On page load, apply saved theme preference (if any)
     (function () {
       const savedTheme = localStorage.getItem("theme");
-      if (
-        savedTheme === "dark" ||
-        (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-      ) {
+      if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
         document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
       }
     })();
   </script>
