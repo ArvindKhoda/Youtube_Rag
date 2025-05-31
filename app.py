@@ -3,6 +3,8 @@ import os
 import re
 from uuid import uuid4
 from urllib.parse import urlparse, parse_qs
+import json
+import requests
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from dotenv import load_dotenv
@@ -82,16 +84,31 @@ def get_transcript_languages(url_or_id):
         return []
 
 
-def fetch_transcript_text(video_id, language_code):
+def fetch_transcript_text(video_id, language_code="en"):
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=[language_code])
-        return "\n".join([item['text'] for item in transcript_list])
-    except (TranscriptsDisabled, NoTranscriptFound) as e:
-        print(f"No transcript available: {e}")
-        return None
+        url = f"https://video.google.com/timedtext?lang={language_code}&v={video_id}"
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/114.0.0.0 Safari/537.36"
+            )
+        }
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200 or not response.text.strip():
+            print("Transcript not found or blocked.")
+            return None
+
+        from xml.etree import ElementTree as ET
+        root = ET.fromstring(response.content)
+        transcript_lines = [node.text for node in root.findall("text") if node.text]
+        return "\n".join(transcript_lines)
+
     except Exception as e:
-        print("Transcript fetch error:", e)
+        print(f"[Render Transcript Fetch Error] {str(e)}")
         return None
+
 
 
 def format_docs(retrieved_docs):
