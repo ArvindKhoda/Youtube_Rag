@@ -84,30 +84,32 @@ def get_transcript_languages(url_or_id):
         return []
 
 
-def fetch_transcript_text(video_id, language_code="en"):
+def fetch_transcript_text(video_id, language_code):
     try:
-        url = f"https://video.google.com/timedtext?lang={language_code}&v={video_id}"
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/114.0.0.0 Safari/537.36"
-            )
-        }
-        response = requests.get(url, headers=headers)
+        # Attempt to get transcript using YouTubeTranscriptApi
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+        # Prefer exact language code if available
+        if transcript_list.find_transcript([language_code]):
+            transcript = transcript_list.find_transcript([language_code])
+        else:
+            # Fallback to manually translated or auto-generated
+            transcript = transcript_list.find_transcript([language_code])
         
-        if response.status_code != 200 or not response.text.strip():
-            print("Transcript not found or blocked.")
-            return None
+        transcript_data = transcript.fetch()
+        text = "\n".join([entry['text'] for entry in transcript_data])
+        return text
 
-        from xml.etree import ElementTree as ET
-        root = ET.fromstring(response.content)
-        transcript_lines = [node.text for node in root.findall("text") if node.text]
-        return "\n".join(transcript_lines)
-
-    except Exception as e:
-        print(f"[Render Transcript Fetch Error] {str(e)}")
+    except TranscriptsDisabled:
+        print("Transcripts are disabled for this video.")
         return None
+    except NoTranscriptFound:
+        print("No transcript found in the requested language.")
+        return None
+    except Exception as e:
+        print(f"[Improved Transcript Fetch Error] {str(e)}")
+        return None
+
 
 
 
