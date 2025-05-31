@@ -9,7 +9,9 @@ import requests
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+
 
 # LangChain tools
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -77,27 +79,47 @@ def extract_video_id(url):
 def get_transcript_languages(url_or_id):
     try:
         video_id = extract_video_id(url_or_id)
-        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Setup proxy config — fill in your actual proxy username & password
+        proxy_config = WebshareProxyConfig(
+            proxy_username="ozyugcjv",
+            proxy_password="td09ysf5mgcc"
+        )
+        
+        # Initialize API with proxy config
+        api = YouTubeTranscriptApi(proxy_config=proxy_config)
+        transcripts =  api.list_transcripts(video_id)
         return [{"language": t.language, "code": t.language_code} for t in transcripts]
     except Exception as e:
         print("Language fetch error:", e)
         return []
 
 
-def fetch_transcript_text(video_id, language_code):
-    try:
-        # Attempt to get transcript using YouTubeTranscriptApi
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
-        # Prefer exact language code if available
+
+def fetch_transcript_with_proxy(video_id, language_code="en"):
+    try:
+        # Setup proxy config — fill in your actual proxy username & password
+        proxy_config = WebshareProxyConfig(
+            proxy_username="ozyugcjv",
+            proxy_password="td09ysf5mgcc"
+        )
+        
+        # Initialize API with proxy config
+        api = YouTubeTranscriptApi(proxy_config=proxy_config)
+        
+        # List available transcripts
+        transcript_list = api.list_transcripts(video_id)
+        
+        # Find the transcript in desired language (or fallback)
         if transcript_list.find_transcript([language_code]):
             transcript = transcript_list.find_transcript([language_code])
         else:
-            # Fallback to manually translated or auto-generated
             transcript = transcript_list.find_transcript([language_code])
         
+        # Fetch transcript text entries
         transcript_data = transcript.fetch()
         text = "\n".join([entry['text'] for entry in transcript_data])
+        
         return text
 
     except TranscriptsDisabled:
@@ -107,9 +129,19 @@ def fetch_transcript_text(video_id, language_code):
         print("No transcript found in the requested language.")
         return None
     except Exception as e:
-        print(f"[Improved Transcript Fetch Error] {str(e)}")
+        print(f"Transcript fetch error: {e}")
         return None
 
+
+# Example usage
+video_id = "MtN1YnoL46Q"
+transcript_text = fetch_transcript_with_proxy(video_id, "en")
+
+if transcript_text:
+    print("Transcript fetched successfully!")
+    print(transcript_text)
+else:
+    print("Failed to fetch transcript.")
 
 
 
